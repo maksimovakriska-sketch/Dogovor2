@@ -1,21 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h2 class="mb-0">Список договоров</h2>
-  <div>
-    <a class="btn btn-primary" href="{{ url_for('main.contract_edit') }}">+ Новый договор</a>
-  </div>
+  <h2>Договоры</h2>
+  <a href="{{ url_for('main.contract_edit') }}" class="btn btn-primary">Новый договор</a>
 </div>
 
-<table class="table table-hover">
-  <thead class="table-light">
+<table class="table table-striped">
+  <thead>
     <tr>
-      <th>Дата</th>
-      <th>Номер договора</th>
+      <th>Номер</th>
       <th>Контрагент</th>
+      <th>Дата</th>
       <th class="text-end">Сумма</th>
       <th class="text-end">Оплачено</th>
-      <th class="text-end">Выработано</th>
+      <th class="text-end">Оплачено по доп.</th>
       <th class="text-end">Остаток</th>
       <th>Статус</th>
       <th></th>
@@ -23,65 +21,39 @@
   </thead>
   <tbody>
     {% for c in contracts %}
-      <tr class="{% if c.archived %}table-secondary{% endif %}">
-        <td>{{ c.contract_date.strftime('%d.%m.%Y') if c.contract_date else "-" }}</td>
-        <td>{{ c.contract_number }}</td>
+      <tr>
+        <td>
+          {% if has_children_map and has_children_map.get(c.id) %}
+            <a href="{{ url_for('main.contract_detail', cid=c.id) }}" title="Открыть договор">↴</a>
+          {% endif %}
+          <a href="{{ url_for('main.contract_detail', cid=c.id) }}">#{{ c.contract_number }}</a>
+        </td>
         <td>{{ c.contractor }}</td>
+        <td>{{ c.contract_date.strftime('%d.%m.%Y') if c.contract_date else '-' }}</td>
         <td class="text-end">{{ '%.2f'|format(c.amount_total or 0) }}</td>
         <td class="text-end">{{ '%.2f'|format(c.amount_paid or 0) }}</td>
-        <td class="text-end">{{ '%.2f'|format(c.amount_earned or 0) }}</td>
-        <td class="text-end">{{ '%.2f'|format((c.amount_paid or 0) - (c.amount_earned or 0)) }}</td>
+        <td class="text-end">{{ '%.2f'|format(extra_paid_map.get(c.id, 0.0)) }}</td>
+        <td class="text-end">{{ '%.2f'|format((c.amount_total or 0) - (c.amount_earned or 0)) }}</td>
         <td>
-          {% if c.status == 'расторгнут' %}
-            <span class="badge bg-danger">Расторгнут</span>
-          {% elif c.status == 'в работе' %}
-            <span class="badge bg-success">В работе</span>
-          {% elif c.status == 'исполнен' %}
-            <span class="badge bg-info text-dark">Исполнен</span>
-          {% else %}
-            <span class="badge bg-secondary">{{ c.status }}</span>
-          {% endif %}
+          {% if c.status == 'исполнен' %}<span class="badge bg-success">Исполнен</span>
+          {% elif c.status == 'расторгнут' %}<span class="badge bg-danger">Расторгнут</span>
+          {% else %}<span class="badge bg-secondary">{{ c.status }}</span>{% endif %}
         </td>
         <td class="text-end">
           <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.contract_detail', cid=c.id) }}">Открыть</a>
 
-          <form method="post" action="{{ url_for('main.contract_archive', cid=c.id) }}" style="display:inline-block;" onsubmit="return confirm('Переместить договор в архив?');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-sm btn-primary">В архив</button>
-          </form>
-
-          <form method="post" action="{{ url_for('main.contract_delete', cid=c.id) }}" style="display:inline-block;" onsubmit="return confirm('Удалить договор {{ c.contract_number }}? Это действие необратимо.');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
-          </form>
+          {% if current_user.is_admin or c.user_id == current_user.id %}
+            <form method="post" action="{{ url_for('main.contract_archive', cid=c.id) }}" style="display:inline;" onsubmit="return confirmAction(this,'Переместить договор #{{ c.contract_number }} в архив?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-warning" type="submit">В архив</button>
+            </form>
+            <form method="post" action="{{ url_for('main.contract_delete', cid=c.id) }}" style="display:inline;" onsubmit="return confirmAction(this,'Удалить договор #{{ c.contract_number }}? Это действие необратимо.');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-danger" type="submit">Удалить</button>
+            </form>
+          {% endif %}
         </td>
       </tr>
-
-      {% for sub in c.subcontracts|sort(attribute='contract_date', reverse=True) %}
-        <tr class="table-light">
-          <td style="padding-left: 25px;">{{ sub.contract_date.strftime('%d.%m.%Y') if sub.contract_date else "-" }}</td>
-          <td>{{ sub.contract_number }}</td>
-          <td>{{ sub.contractor }}</td>
-          <td class="text-end">
-            {% if sub.extra_type == 'add_amount' %}
-              +{{ '%.2f'|format(sub.extra_amount or 0) }}
-            {% else %}
-              —
-            {% endif %}
-          </td>
-          <td class="text-end">-</td>
-          <td class="text-end">-</td>
-          <td class="text-end">-</td>
-          <td>Доп. соглашение{% if sub.extra_type == 'termination' %} (расторг.){% endif %}</td>
-          <td class="text-end">
-            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.contract_detail', cid=sub.id) }}">Открыть</a>
-            <form method="post" action="{{ url_for('main.contract_delete', cid=sub.id) }}" style="display:inline-block;" onsubmit="return confirm('Удалить доп. соглашение {{ sub.contract_number }}?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
-            </form>
-          </td>
-        </tr>
-      {% endfor %}
     {% endfor %}
   </tbody>
 </table>

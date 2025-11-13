@@ -2,17 +2,38 @@
 {% block content %}
 <h2>Договор: {{ contract.contract_number }}</h2>
 
-{% if contract.parent_id %}
-  <div class="alert alert-info">
-    Это доп. соглашение к договору
-    <a href="{{ url_for('main.contract_detail', cid=contract.parent_id) }}">#{{ contract.parent.contract_number }}</a>.
-    {% if contract.extra_type == 'add_amount' %}
-      Тип: Доп. сумма — {{ '%.2f'|format(contract.extra_amount or 0) }}
-    {% elif contract.extra_type == 'termination' %}
-      Тип: Досрочное расторжение
+<div class="mb-2 d-flex justify-content-between">
+  <div>
+    {% if contract.parent_id %}
+      <div class="alert alert-info">
+        Это доп. соглашение к договору
+        <a href="{{ url_for('main.contract_detail', cid=contract.parent_id) }}">#{{ contract.parent.contract_number }}</a>.
+        {% if contract.extra_type == 'add_amount' %}
+          Тип: Доп. сумма — {{ '%.2f'|format(contract.amount_total or 0) }}
+        {% elif contract.extra_type == 'termination' %}
+          Тип: Досрочное расторжение
+        {% endif %}
+      </div>
     {% endif %}
   </div>
-{% endif %}
+
+  <div>
+    <a class="btn btn-secondary" href="{{ url_for('main.contracts') }}">← Назад</a>
+    {% if current_user.is_admin or contract.user_id == current_user.id %}
+      <a class="btn btn-outline-primary" href="{{ url_for('main.contract_edit', cid=contract.id) }}">Редактировать</a>
+
+      <form method="post" action="{{ url_for('main.contract_archive', cid=contract.id) }}" style="display:inline;" onsubmit="return confirmAction(this,'Переместить договор #{{ contract.contract_number }} в архив?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-warning">В архив</button>
+      </form>
+
+      <form method="post" action="{{ url_for('main.contract_delete', cid=contract.id) }}" style="display:inline;" onsubmit="return confirmAction(this,'Удалить договор #{{ contract.contract_number }}? Это действие необратимо.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-danger">Удалить</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
 
 <div class="row mb-3">
   <div class="col-md-6">
@@ -31,42 +52,67 @@
         <span class="badge bg-success">Исполнен</span>
       {% elif contract.status == 'расторгнут' %}
         <span class="badge bg-danger">Расторгнут</span>
-      {% elif contract.archived %}
-        <span class="badge bg-secondary">Архив</span>
       {% else %}
-        <span class="badge bg-warning text-dark">В работе</span>
+        <span class="badge bg-secondary">{{ contract.status }}</span>
       {% endif %}
   </div>
 </div>
 
-{% if subcontracts %}
-<hr>
-<h4>Дополнительные соглашения ({{ subcontracts|length }})</h4>
-<table class="table table-sm">
+{# Sub agreements #}
+{% if subs %}
+<h4>Дополнительные соглашения</h4>
+<table class="table table-bordered">
   <thead>
-    <tr><th>Номер</th><th>Дата</th><th>Тип</th><th>Сумма</th><th>Оплачено</th><th>Статус</th><th></th></tr>
+    <tr>
+      <th>Номер</th>
+      <th>Тип</th>
+      <th class="text-end">Сумма</th>
+      <th class="text-end">Оплачено</th>
+      <th>Статус</th>
+      <th></th>
+    </tr>
   </thead>
   <tbody>
-    {% for sub in subcontracts %}
-      <tr class="table-light">
-        <td>{{ sub.contract_number }}</td>
-        <td>{{ sub.contract_date.strftime('%d.%m.%Y') if sub.contract_date else "-" }}</td>
-        <td>
-          {% if sub.extra_type == 'add_amount' %}Доп. сумма{% elif sub.extra_type == 'termination' %}Растор.{% else %}—{% endif %}
-        </td>
-        <td class="text-end">{{ '%.2f'|format(sub.extra_amount or 0) }}</td>
+    {% for sub in subs %}
+      <tr>
+        <td>#{{ sub.contract_number }}</td>
+        <td>{% if sub.extra_type == 'add_amount' %}Доп. сумма{% elif sub.extra_type == 'termination' %}Растор.{% else %}—{% endif %}</td>
+        <td class="text-end">{{ '%.2f'|format(sub.amount_total or 0) }}</td>
         <td class="text-end">{{ '%.2f'|format(sub.amount_paid or 0) }}</td>
         <td>
           {% if sub.status == 'расторгнут' %}<span class="badge bg-danger">Расторгнут</span>{% else %}{{ sub.status }}{% endif %}
         </td>
         <td class="text-end">
-          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.contract_detail', cid=sub.id) }}">Открыть</a>
+          <!-- единая кнопка для перехода к доп. соглашению -->
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.contract_detail', cid=sub.id) }}" title="Открыть доп. соглашение #{{ sub.contract_number }}">Открыть ↗</a>
         </td>
       </tr>
     {% endfor %}
   </tbody>
 </table>
 {% endif %}
+
+<hr>
+<h4>История оказанных услуг</h4>
+<table class="table table-bordered">
+  <thead>
+    <tr><th>Дата</th><th>Описание</th><th class="text-end">Сумма</th></tr>
+  </thead>
+  <tbody>
+    {% for s in services %}
+      <tr>
+        <td>{{ s.date_display }}</td>
+        <td>
+          {% if s.is_extra %}
+            <span class="badge bg-info me-1">Доп. услуга</span>
+          {% endif %}
+          {{ s.description }}
+        </td>
+        <td class="text-end">{{ '%.2f'|format(s.total or 0) }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
 
 <hr>
 <h4>История изменений и оплат</h4>
@@ -88,96 +134,38 @@
 {% endif %}
 
 <hr>
-<h4>История оказанных услуг</h4>
-<table class="table table-bordered">
-  <thead>
-    <tr><th>Дата</th><th>Описание</th><th>Ед. изм.</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th>Действия</th></tr>
-  </thead>
-  <tbody>
-    {% for s in services %}
-      <tr>
-        <td>{{ s.date.strftime('%d.%m.%Y') }}</td>
-        <td>{{ s.description }}</td>
-        <td>{{ s.unit }}</td>
-        <td>{{ s.quantity }}</td>
-        <td>{{ '%.2f'|format(s.price_per_unit) }}</td>
-        <td>{{ '%.2f'|format(s.total) }}</td>
-        <td>
-          {% if current_user.is_admin or contract.user_id == current_user.id %}
-            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.service_edit', sid=s.id) }}">Редактировать</a>
-            <form method="post" action="{{ url_for('main.service_delete', sid=s.id) }}" style="display:inline-block;" onsubmit="return confirm('Удалить услугу?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button class="btn btn-sm btn-outline-danger">Удалить</button>
-            </form>
-          {% endif %}
-        </td>
-      </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<hr>
-<h4>Дополнительные услуги</h4>
-<table class="table table-bordered">
-  <thead><tr><th>Дата</th><th>Описание</th><th>Цена</th><th>Сумма</th><th>Действия</th></tr></thead>
-  <tbody>
-    {% for es in extra_services %}
-      <tr>
-        <td>{{ es.date.strftime('%d.%m.%Y') }}</td>
-        <td>{{ es.description }}</td>
-        <td>{{ '%.2f'|format(es.price) }}</td>
-        <td>{{ '%.2f'|format(es.total) }}</td>
-        <td>
-          {% if current_user.is_admin or contract.user_id == current_user.id %}
-            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.extra_service_edit', eid=es.id) }}">Редактировать</a>
-            <form method="post" action="{{ url_for('main.extra_service_delete', eid=es.id) }}" style="display:inline-block;" onsubmit="return confirm('Удалить доп. услугу?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button class="btn btn-sm btn-outline-danger">Удалить</button>
-            </form>
-          {% endif %}
-        </td>
-      </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-{% if contract.status != "исполнен" and not contract.archived %}
-<hr>
-<h4>Добавить оказанную услугу</h4>
-<form method="post">
-  {{ service_form.hidden_tag() }}
-  <input type="hidden" name="form_name" value="service">
-  <div class="mb-2">{{ service_form.date.label }} {{ service_form.date(class="form-control", type="date") }}</div>
-  <div class="mb-2">{{ service_form.description.label }} {{ service_form.description(class="form-control") }}</div>
-  <div class="mb-2">{{ service_form.unit.label }} {{ service_form.unit(class="form-select") }}</div>
-  <div class="mb-2">{{ service_form.quantity.label }} {{ service_form.quantity(class="form-control") }}</div>
-  <div class="mb-2">{{ service_form.price_per_unit.label }} {{ service_form.price_per_unit(class="form-control") }}</div>
-  <div>{{ service_form.submit(class="btn btn-primary") }}</div>
-</form>
-
-<hr>
-<h4>Добавить дополнительную услугу</h4>
-<form method="post">
-  {{ extra_service_form.hidden_tag() }}
-  <input type="hidden" name="form_name" value="extra_service">
-  <div class="mb-2">{{ extra_service_form.date.label }} {{ extra_service_form.date(class="form-control", type="date") }}</div>
-  <div class="mb-2">{{ extra_service_form.description.label }} {{ extra_service_form.description(class="form-control") }}</div>
-  <div class="mb-2">{{ extra_service_form.price.label }} {{ extra_service_form.price(class="form-control") }}</div>
-  <div class="mb-2">{{ extra_service_form.total.label }} {{ extra_service_form.total(class="form-control") }}</div>
-  <div>{{ extra_service_form.submit(class="btn btn-info") }}</div>
-</form>
-
-<hr>
-<h4>Зачесть оплату</h4>
-<form method="post">
-  {{ payment_form.hidden_tag() }}
-  <input type="hidden" name="form_name" value="payment">
-  <div class="mb-2">{{ payment_form.date.label }} {{ payment_form.date(class="form-control", type="date") }}</div>
-  <div class="mb-2">{{ payment_form.amount_paid.label }} {{ payment_form.amount_paid(class="form-control") }}</div>
-  <div>{{ payment_form.submit(class="btn btn-success") }}</div>
-</form>
-{% endif %}
-
-<hr>
-<a href="{{ url_for('main.contracts') }}" class="btn btn-secondary">← Назад</a>
+<h4>Добавить услугу / доп. услугу / оплату</h4>
+<div class="row">
+  <div class="col-md-4">
+    <form method="post">
+      {{ service_form.hidden_tag() }}
+      <input type="hidden" name="form_name" value="service">
+      <div class="mb-2">{{ service_form.date.label }} {{ service_form.date(class="form-control", type="date") }}</div>
+      <div class="mb-2">{{ service_form.description.label }} {{ service_form.description(class="form-control") }}</div>
+      <div class="mb-2">{{ service_form.quantity.label }} {{ service_form.quantity(class="form-control") }}</div>
+      <div class="mb-2">{{ service_form.price_per_unit.label }} {{ service_form.price_per_unit(class="form-control") }}</div>
+      <div>{{ service_form.submit(class="btn btn-info") }}</div>
+    </form>
+  </div>
+  <div class="col-md-4">
+    <form method="post">
+      {{ extra_service_form.hidden_tag() }}
+      <input type="hidden" name="form_name" value="extra_service">
+      <div class="mb-2">{{ extra_service_form.date.label }} {{ extra_service_form.date(class="form-control", type="date") }}</div>
+      <div class="mb-2">{{ extra_service_form.description.label }} {{ extra_service_form.description(class="form-control") }}</div>
+      <div class="mb-2">{{ extra_service_form.price.label }} {{ extra_service_form.price(class="form-control") }}</div>
+      <div class="mb-2">{{ extra_service_form.total.label }} {{ extra_service_form.total(class="form-control") }}</div>
+      <div>{{ extra_service_form.submit(class="btn btn-info") }}</div>
+    </form>
+  </div>
+  <div class="col-md-4">
+    <form method="post">
+      {{ payment_form.hidden_tag() }}
+      <input type="hidden" name="form_name" value="payment">
+      <div class="mb-2">{{ payment_form.date.label }} {{ payment_form.date(class="form-control", type="date") }}</div>
+      <div class="mb-2">{{ payment_form.amount_paid.label }} {{ payment_form.amount_paid(class="form-control") }}</div>
+      <div>{{ payment_form.submit(class="btn btn-success") }}</div>
+    </form>
+  </div>
+</div>
 {% endblock %}

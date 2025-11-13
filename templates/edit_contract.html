@@ -1,103 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
-<h3 class="mb-3">{% if contract %}Редактирование договора{% else %}Создание договора{% endif %}</h3>
+<h2>{% if contract %}Редактирование договора{% else %}Новый договор{% endif %}</h2>
 
-<form method="post" id="contractForm">
+<form method="post">
   {{ form.hidden_tag() }}
-  <div class="row g-3">
-    <div class="col-md-3">
-      {{ form.contract_date.label }} {{ form.contract_date(class="form-control", type="date") }}
-    </div>
-    <div class="col-md-3">
-      {{ form.contract_number.label }} {{ form.contract_number(class="form-control") }}
+  <div class="row">
+    <div class="col-md-6">
+      <div class="mb-2">{{ form.contract_date.label }} {{ form.contract_date(class="form-control", type="date") }}</div>
+      <div class="mb-2">{{ form.contract_number.label }} {{ form.contract_number(class="form-control") }}</div>
+      <div class="mb-2">{{ form.contractor.label }} {{ form.contractor(class="form-control") }}</div>
+      <div class="mb-2">{{ form.main_or_additional.label }} {{ form.main_or_additional(class="form-control", id="type_select") }}</div>
+      <div class="mb-2" id="parent_block">{{ form.parent_contract.label }} {{ form.parent_contract(class="form-select") }}</div>
+      <div class="mb-2" id="extra_type_block">{{ form.extra_type.label }} {{ form.extra_type(class="form-select", id="extra_type") }}</div>
+      <div class="mb-2">{{ form.payment_type.label }} {{ form.payment_type(class="form-select") }}</div>
     </div>
     <div class="col-md-6">
-      {{ form.contractor.label }} {{ form.contractor(class="form-control") }}
+      <div class="mb-2">{{ form.amount_total.label }} {{ form.amount_total(class="form-control") }}</div>
+      <div class="mb-2" id="amount_paid_block">{{ form.amount_paid.label }} {{ form.amount_paid(class="form-control") }}</div>
+      <div class="mb-2">{{ form.status.label }} {{ form.status(class="form-select") }}</div>
     </div>
+  </div>
 
-    <div class="col-md-4">
-      {{ form.main_or_additional.label }} {{ form.main_or_additional(class="form-select", id="main_or_additional") }}
-    </div>
-
-    <div id="extra_fields" class="col-12" style="display:none; margin-top:10px; border-left:3px solid #eee; padding-left:12px;">
-      <div class="row g-3">
-        <div class="col-md-4">
-          {{ form.parent_contract.label }} {{ form.parent_contract(class="form-select") }}
-        </div>
-        <div class="col-md-4">
-          {{ form.extra_type.label }} {{ form.extra_type(class="form-select", id="extra_type") }}
-        </div>
-        <div id="extra_amount_block" class="col-md-4" style="display:none;">
-          {{ form.extra_amount.label }} {{ form.extra_amount(class="form-control") }}
-        </div>
-      </div>
-    </div>
-
-    <div id="main_fields" class="col-12" style="margin-top:10px;">
-      <div class="row g-3">
-        <div class="col-md-3">
-          {{ form.payment_type.label }} {{ form.payment_type(class="form-select") }}
-        </div>
-        <div id="amount_total_block" class="col-md-3">
-          {{ form.amount_total.label }} {{ form.amount_total(class="form-control") }}
-        </div>
-        <div id="amount_paid_block" class="col-md-3">
-          {{ form.amount_paid.label }} {{ form.amount_paid(class="form-control") }}
-        </div>
-        <div class="col-md-3">
-          {{ form.status.label }} {{ form.status(class="form-select") }}
-        </div>
-      </div>
-    </div>
-
-    <div class="col-12 mt-3">
-      {{ form.submit(class="btn btn-primary") }}
-      <a href="{{ url_for('main.contracts') }}" class="btn btn-secondary">Отмена</a>
-    </div>
+  <div class="mt-3">
+    {{ form.submit(class="btn btn-primary") }}
+    <a href="{{ url_for('main.contracts') }}" class="btn btn-secondary">Отмена</a>
   </div>
 </form>
 
 <script>
-  // Инициализация: вызываем функцию установки видимости сразу при загрузке
-  function initContractForm() {
-    const typeSelect = document.getElementById('main_or_additional');
-    const extraBlock = document.getElementById('extra_fields');
-    const extraType = document.getElementById('extra_type');
-    const extraAmountBlock = document.getElementById('extra_amount_block');
-    const mainFields = document.getElementById('main_fields');
-    const amountTotalBlock = document.getElementById('amount_total_block');
+  // Простейшая логика видимости: показываем parent и extra_type только для доп. соглашения
+  (function(){
+    const typeSelect = document.getElementById('type_select');
+    const parentBlock = document.getElementById('parent_block');
+    const extraTypeBlock = document.getElementById('extra_type_block');
     const amountPaidBlock = document.getElementById('amount_paid_block');
 
     function updateVisibility() {
       if (!typeSelect) return;
-      const isExtra = typeSelect.value === 'Доп соглашение';
-      if (isExtra) {
-        extraBlock.style.display = 'block';
-        // Для доп. соглашения скрываем поле amount_total и показываем amount_paid
-        amountTotalBlock.style.display = 'none';
-        amountPaidBlock.style.display = 'block';
-        // если тип доп. суммы — показываем extra_amount и payment_type (main fields оставим видимыми только для оплаты)
-        if (extraType && extraType.value === 'add_amount') {
-          extraAmountBlock.style.display = 'block';
-          // payment_type уже в main_fields — оставляем
-        } else {
-          extraAmountBlock.style.display = 'none';
-        }
-      } else {
-        extraBlock.style.display = 'none';
-        amountTotalBlock.style.display = 'block';
-        amountPaidBlock.style.display = 'block';
-        extraAmountBlock.style.display = 'none';
-      }
+      const isExtra = typeSelect.value === 'Доп соглашение' || typeSelect.value === 'Доп соглашение';
+      parentBlock.style.display = isExtra ? 'block' : 'none';
+      extraTypeBlock.style.display = isExtra ? 'block' : 'none';
+      // Для доп. соглашения показываем поле "Оплачено" (чтобы можно было сразу зачесть оплату)
+      amountPaidBlock.style.display = isExtra ? 'block' : 'block'; // показываем всегда, оставил видимым
     }
 
+    document.addEventListener('DOMContentLoaded', updateVisibility);
     if (typeSelect) typeSelect.addEventListener('change', updateVisibility);
-    if (extraType) extraType.addEventListener('change', updateVisibility);
-    updateVisibility();
-  }
-
-  document.addEventListener('DOMContentLoaded', function(){
-    initContractForm();
-  });
+  })();
 </script>
 {% endblock %}
