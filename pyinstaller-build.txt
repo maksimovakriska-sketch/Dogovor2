@@ -1,0 +1,15 @@
+# Инструкция: как собрать один exe с PyInstaller (на Windows)
+# 1) Активируйте виртуальное окружение,
+#    pip install pyinstaller waitress
+#
+# 2) В корне проекта выполните (в PowerShell):
+# Примечание по --add-data: на Windows используется разделитель ';'
+pyinstaller --onefile ; --add-data "templates;templates" ; --add-data "static;static"; --add-data "nssm.exe;nssm.exe";--hidden-import=werkzeug.security;--hidden-import=waitress;--name ContractsApp run.py
+#
+# После успешного выполнения в dist\ContractsApp.exe будет готовый исполняемый файл.
+# Тест:
+#  - dist\ContractsApp.exe init-db
+#  - dist\ContractsApp.exe create-admin admin root64
+#  - dist\ContractsApp.exe serve --host 0.0.0.0 --port 8000
+#
+# Если используете Linux/WSL: поменяйте разделитель в --add-data на ':'.

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>История по договору: {{ contract.contract_number }}</h2>
+<table class="table">
+  <thead>
+    <tr>
+      <th>Дата</th>
+      <th>Кто</th>
+      <th>Действие</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for h in history %}
+      <tr>
+        <td>{{ h.date.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td>{{ h.actor }}</td>
+        <td>{{ h.action }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<a href="{{ url_for('main.contract_detail', cid=contract.id) }}" class="btn btn-secondary">← Назад</a>
+{% endblock %}

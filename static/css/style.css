@@ -1,0 +1,5 @@
+body { padding-top: 70px; }
+.navbar-title { color: #212529; font-weight: 600; margin-left: 4px; }
+.table-hover tbody tr:hover { background-color: #f8f9fa; }
+.badge.bg-success { background-color: #198754; }
+.badge.bg-danger { background-color: #dc3545; }

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Архив договоров</h2>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Номер</th>
+      <th>Дата</th>
+      <th>Контрагент</th>
+      <th>Сумма</th>
+      <th>Оплачено</th>
+      <th>Выработано</th>
+      <th>Статус</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in contracts %}
+      <tr class="table-secondary">
+        <td>{{ c.contract_number }}</td>
+        <td>{{ c.contract_date.strftime('%d.%m.%Y') }}</td>
+        <td>{{ c.contractor }}</td>
+        <td>{{ '%.2f'|format(c.amount_total or 0) }}</td>
+        <td>{{ '%.2f'|format(c.amount_paid or 0) }}</td>
+        <td>{{ '%.2f'|format(c.amount_earned or 0) }}</td>
+        <td>{{ c.status }}</td>
+        <td>
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.contract_detail', cid=c.id) }}">Открыть</a>
+          <form method="post" action="{{ url_for('main.contract_unarchive', cid=c.id) }}" style="display:inline-block;" onsubmit="return confirm('Восстановить договор из архива?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-success">Восстановить</button>
+          </form>
+        </td>
+      </tr>
+
+      {% for sub in c.subcontracts|sort(attribute='contract_date', reverse=True) %}
+        <tr class="table-light">
+          <td style="padding-left: 30px;">↳ {{ sub.contract_number }}</td>
+          <td>{{ sub.contract_date.strftime('%d.%m.%Y') }}</td>
+          <td>{{ sub.contractor }}</td>
+          <td>
+            {% if sub.extra_type == 'add_amount' %}
+              +{{ '%.2f'|format(sub.extra_amount or 0) }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>-</td>
+          <td>-</td>
+          <td>Доп. соглашение{% if sub.extra_type == 'termination' %} (расторг.){% endif %}</td>
+          <td>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.contract_detail', cid=sub.id) }}">Открыть</a>
+          </td>
+        </tr>
+      {% endfor %}
+    {% endfor %}
+  </tbody>
+</table>
+
+<a class="btn btn-secondary" href="{{ url_for('main.contracts') }}">← Назад</a>
+{% endblock %}

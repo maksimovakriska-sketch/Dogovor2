@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Пользователи</h2>
+  <div>
+    <a class="btn btn-primary" href="{{ url_for('auth.register') }}">+ Новый пользователь</a>
+  </div>
+</div>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Имя</th>
+      <th>Роль</th>
+      <th>Дата создания</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.username }}</td>
+        <td>{% if u.is_admin %}Админ{% else %}Пользователь{% endif %}</td>
+        <td>
+          {% if u.created_at %}
+            {{ u.created_at.strftime('%d.%m.%Y %H:%M') }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td class="text-end">
+          <form method="post" action="{{ url_for('auth.delete_user', uid=u.id) }}" style="display:inline-block;" onsubmit="return confirm('Удалить пользователя {{ u.username }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger">Удалить</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

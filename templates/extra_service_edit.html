@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Редактирование доп. услуги для договора {{ contract.contract_number }}</h3>
+
+<form method="post">
+  {{ form.hidden_tag() }}
+  <div class="mb-2">
+    {{ form.date.label }} {{ form.date(class="form-control", type="date") }}
+  </div>
+  <div class="mb-2">
+    {{ form.description.label }} {{ form.description(class="form-control") }}
+  </div>
+  <div class="mb-2">
+    {{ form.price.label }} {{ form.price(class="form-control") }}
+  </div>
+  <div class="mb-2">
+    {{ form.total.label }} {{ form.total(class="form-control") }}
+  </div>
+  <div>
+    {{ form.submit(class="btn btn-primary") }}
+    <a href="{{ url_for('main.contract_detail', cid=contract.id) }}" class="btn btn-secondary">Отмена</a>
+  </div>
+</form>
+{% endblock %}

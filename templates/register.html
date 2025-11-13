@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Новый пользователь</h3>
+<form method="post">
+  {{ form.hidden_tag() }}
+  <div class="mb-2">{{ form.username.label }} {{ form.username(class="form-control") }}</div>
+  <div class="mb-2">{{ form.password.label }} {{ form.password(class="form-control", type="password") }}</div>
+  <div class="mb-2">{{ form.password2.label }} {{ form.password2(class="form-control", type="password") }}</div>
+  <div class="form-check mb-2">{{ form.is_admin() }} {{ form.is_admin.label }}</div>
+  <div>{{ form.submit(class="btn btn-primary") }}</div>
+</form>
+{% endblock %}
